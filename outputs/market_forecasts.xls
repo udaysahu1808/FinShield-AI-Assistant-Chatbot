@@ -1,0 +1,11 @@
+company,expected_return_pct,risk_tag
+ALPHA,-0.04,Low
+BRAVO,0.2,Medium
+CIVIC,0.17,High
+DELTA,1.09,High
+ECHO,-0.09,Medium
+FOXTEL,0.64,Medium
+GRANITE,-0.23,Low
+HORIZON,0.08,High
+INDUS,-0.23,Medium
+JOVIAN,-0.05,High
