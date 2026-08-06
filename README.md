@@ -1,4 +1,4 @@
-# FinShield Copilot — live app (Groq edition)
+# FinShield-AI-Assistant-Chatbot — live app 
 
 A browser chat app version of the FinShield Copilot notebook: same grounded,
 multimodal, tool-using chatbot, now with a real chat UI, file uploads for
@@ -14,10 +14,11 @@ finshield_app/
     ├── finshield_scores.csv
     ├── risk_monitoring_decisions.csv
     ├── market_forecasts.csv
+    ├── fraud_scores.csv
     └── company_sentiment_impact.csv
 ```
 
-Copy the four CSV files produced by FinShield **Parts 1, 2, and 3** into the
+Copy the five CSV files produced by FinShield **Parts 1, 2, and 3** into the
 `outputs/` folder next to `app.py`. (They're the same files the notebook
 looked for.)
 
