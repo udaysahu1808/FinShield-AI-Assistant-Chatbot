@@ -1,5 +1,5 @@
 """
-FinShield Copilot — live chat app (Groq edition)
+FinShield Ai Assistant— live chat app (Groq edition)
 
 Run with:
     streamlit run app.py
@@ -34,7 +34,7 @@ REQUIRED_FILES = [
     "outputs/company_sentiment_impact.csv",
 ]
 
-st.set_page_config(page_title="FinShield Copilot", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="FinShield AI Assistant", page_icon="🛡️", layout="wide")
 
 
 # --------------------------------------------------------------------------
@@ -46,6 +46,7 @@ def load_data():
     decisions = pd.read_csv("outputs/risk_monitoring_decisions.csv")
     market_forecasts = pd.read_csv("outputs/market_forecasts.csv")
     company_sentiment = pd.read_csv("outputs/company_sentiment_impact.csv")
+    fraud_scores = pd.read_csv("outputs/fraud_scores.csv")
 
     portfolio_summary = {
         "total_customers": int(len(finshield_scores)),
@@ -237,8 +238,8 @@ def transcribe_audio(client, audio_bytes, filename):
 # --------------------------------------------------------------------------
 # UI
 # --------------------------------------------------------------------------
-st.title("🛡️ FinShield Copilot")
-st.caption("Grounded in your FinShield Parts 1-3 data · powered by Groq")
+st.title("🛡️ FinShield AI Assistant")
+st.caption("Where Machine Learning Meets Financial Intelligence")
 
 with st.sidebar:
     st.subheader("Setup")
