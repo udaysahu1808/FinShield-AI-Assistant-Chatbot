@@ -758,7 +758,7 @@ if question:
 st.markdown(
     f"""
     <div class="app-footer">
-        <div>🛡️ <b>{FinShield AI Assistant}</b> — Where Machine Learning Meets Financial Intelligence</div>
+         <div>🛡️ <b>{FinShield AI Assistant}</b> — Where Machine Learning Meets Financial Intelligence</div>
         <div class="signature">👨‍💻 Designed &amp; Developed by {Uday Sahu}</div>
         <div style="margin-top:6px;">Powered by Groq · {TEXT_MODEL.split('/')[-1]} · {VISION_MODEL.split('/')[-1]} · {AUDIO_MODEL}</div>
     </div>
