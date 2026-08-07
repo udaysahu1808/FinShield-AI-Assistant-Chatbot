@@ -68,51 +68,41 @@ st.set_page_config(
 # --------------------------------------------------------------------------
 CUSTOM_CSS = """
 <style>
-
-/* Chat input container */
-[data-testid="stChatInput"]{
-    background: rgba(20,25,40,0.95);
-    border: 1px solid #39d6c8;
-    border-radius: 18px;
-    box-shadow: 0 0 20px rgba(57,214,200,0.25);
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+ 
+:root{
+    --bg-0:#05070d;
+    --bg-1:#0a0e1a;
+    --bg-2:#0f1424;
+    --accent:#39d6c8;
+    --accent-2:#7c6cff;
+    --accent-3:#ff5f9e;
+    --glass:rgba(255,255,255,0.045);
+    --glass-border:rgba(255,255,255,0.09);
+    --text-hi:#eef1f8;
+    --text-lo:#8b93a7;
+    --danger:#ff5c6c;
+    --warn:#ffb454;
+    --good:#3ee6a8;
 }
-
-/* Input box */
-[data-testid="stChatInput"] textarea{
-    background: transparent !important;
-    color: #ffffff !important;
-    font-size: 16px;
-    caret-color: #39d6c8 !important;
+ 
+html, body, [class*="css"]  { font-family:'Inter', sans-serif; }
+ 
+.stApp{
+    background:
+        radial-gradient(circle at 15% 0%, rgba(124,108,255,0.16), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(57,214,200,0.12), transparent 40%),
+        radial-gradient(circle at 50% 100%, rgba(255,95,158,0.08), transparent 45%),
+        linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 45%, var(--bg-2) 100%);
+    color: var(--text-hi);
 }
-
-/* Placeholder text */
-[data-testid="stChatInput"] textarea::placeholder{
-    color: #9aa4b5 !important;
-    opacity: 1;
+ 
+section[data-testid="stSidebar"]{
+    background: linear-gradient(180deg, rgba(10,14,26,0.98), rgba(5,7,13,0.98));
+    border-right: 1px solid var(--glass-border);
 }
-
-/* Send button */
-[data-testid="stChatInput"] button{
-    background: linear-gradient(135deg,#39d6c8,#7c6cff);
-    color: white;
-    border-radius: 12px;
-    border: none;
-}
-
-/* Hover */
-[data-testid="stChatInput"] button:hover{
-    background: linear-gradient(135deg,#4df2e3,#9b8cff);
-}
-
-/* Remove default border */
-[data-testid="stChatInput"] textarea:focus{
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-</style>
-"""
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+ 
+#MainMenu, footer, header {visibility: hidden;}
 
 /* ---------- Hero ---------- */
 .hero-wrap{
