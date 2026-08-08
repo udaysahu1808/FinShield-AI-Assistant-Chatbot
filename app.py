@@ -1,5 +1,5 @@
 """
-FinShield AI Assistant — live chat app (Groq edition)
+FinShield AI Assistant — live chat app (Groq + optional OpenAI GPT edition)
 Premium glassmorphism / dark-futuristic edition
 
 Designed & Developed by Uday Sahu
@@ -8,7 +8,11 @@ Run with:
     streamlit run app.py
 
 Needs:
-  - A Groq API key (free at https://console.groq.com/keys)
+  - A Groq API key (free at https://console.groq.com/keys) — used for chat by
+    default, plus vision (image) and voice (Whisper) input.
+  - Optionally, an OpenAI API key (https://platform.openai.com/api-keys) if
+    you want to switch the text chat engine to a GPT model for broader,
+    more general-purpose finance knowledge.
   - outputs/finshield_scores.csv, outputs/risk_monitoring_decisions.csv,
     outputs/market_forecasts.csv, outputs/company_sentiment_impact.csv,
     outputs/fraud_scores.csv
@@ -16,7 +20,7 @@ Needs:
     next to this script.
 
 Extra deps for this edition:
-    pip install plotly
+    pip install -r requirements.txt
 """
 
 import io
@@ -31,12 +35,19 @@ import plotly.graph_objects as go
 import streamlit as st
 from groq import Groq
 
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
 # --------------------------------------------------------------------------
 # Config
 # --------------------------------------------------------------------------
-TEXT_MODEL = "openai/gpt-oss-120b"      # general-purpose + tool-use model on GroqCloud
-VISION_MODEL = "qwen/qwen3.6-27b"       # multimodal / vision-capable model on GroqCloud
-AUDIO_MODEL = "whisper-large-v3-turbo"  # Groq-hosted Whisper for voice input
+TEXT_MODEL_GROQ = "openai/gpt-oss-120b"   # general-purpose + tool-use model on GroqCloud
+TEXT_MODELS_OPENAI = ["gpt-4o-mini", "gpt-4o"]  # optional "linked to GPT" engine
+VISION_MODEL = "qwen/qwen3.6-27b"         # multimodal / vision-capable model on GroqCloud
+AUDIO_MODEL = "whisper-large-v3-turbo"    # Groq-hosted Whisper for voice input
 
 APP_NAME = "FinShield AI Assistant"
 APP_AUTHOR = "Uday Sahu"
@@ -85,12 +96,14 @@ CUSTOM_CSS = """
     --warn:#ffb454;
     --good:#3ee6a8;
 
-    /* NEW: dedicated colors for chat output + user-typed text */
+    /* dedicated colors for chat output + user-typed text */
     --chat-assistant-text:#7ef0da;   /* bright teal — bot answers */
     --chat-user-text:#ffe3b3;        /* warm amber — user messages */
     --chat-input-text:#ffffff;       /* text as the user types it */
     --sidebar-text:#d7e6ff;          /* sidebar / "slide bar" text color */
     --scrollbar-thumb:#39d6c8;
+    --upload-btn-bg:#39d6c8;
+    --upload-btn-text:#03110f;
 }
  
 html, body, [class*="css"]  { font-family:'Inter', sans-serif; }
@@ -103,15 +116,33 @@ html, body, [class*="css"]  { font-family:'Inter', sans-serif; }
         linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 45%, var(--bg-2) 100%);
     color: var(--text-hi);
 }
+
+/* --------------------------------------------------------------------
+   FIX: Streamlit dims/fades the whole app to ~0.6-0.7 opacity while a
+   script is (re)running, which is why everything looked "washed out
+   grey". We force full opacity + strong colors at all times instead.
+   -------------------------------------------------------------------- */
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+.main, .block-container, .stApp{
+    opacity: 1 !important;
+    filter: none !important;
+    transition: none !important;
+}
+div[data-testid="stChatMessage"]{
+    opacity: 1 !important;
+}
  
 section[data-testid="stSidebar"]{
     background: linear-gradient(180deg, rgba(10,14,26,0.98), rgba(5,7,13,0.98));
     border-right: 1px solid var(--glass-border);
+    opacity: 1 !important;
 }
 
-/* NEW: sidebar ("slide bar") text color */
+/* sidebar ("slide bar") text color */
 section[data-testid="stSidebar"] * {
     color: var(--sidebar-text) !important;
+    opacity: 1 !important;
 }
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
@@ -122,12 +153,42 @@ section[data-testid="stSidebar"] input {
     color: #ffffff !important;
 }
 
-/* NEW: custom scrollbar coloring (in case "slide bar" meant the scrollbar) */
+/* custom scrollbar coloring */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg-1); }
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, var(--accent), var(--accent-2));
     border-radius: 10px;
+}
+
+/* --------------------------------------------------------------------
+   FIX: the file-uploader "Upload"/"Browse files" buttons looked grey
+   and disabled. Give them a bright, clearly-clickable accent style.
+   -------------------------------------------------------------------- */
+[data-testid="stFileUploaderDropzone"]{
+    background: rgba(57,214,200,0.06) !important;
+    border: 1.5px dashed rgba(57,214,200,0.45) !important;
+    border-radius: 14px !important;
+    opacity: 1 !important;
+}
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploader"] button,
+[data-testid="stBaseButton-secondary"]{
+    background: var(--upload-btn-bg) !important;
+    color: var(--upload-btn-text) !important;
+    border: none !important;
+    font-weight: 700 !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 14px rgba(57,214,200,0.35);
+}
+[data-testid="stFileUploaderDropzone"] button:hover,
+[data-testid="stFileUploader"] button:hover{
+    background: var(--accent-2) !important;
+    color: #ffffff !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] *{
+    color: var(--sidebar-text) !important;
+    opacity: 1 !important;
 }
  
 #MainMenu, footer, header {visibility: hidden;}
@@ -245,39 +306,45 @@ section[data-testid="stSidebar"] input {
 /* ---------- Chat ---------- */
 .suggested-row{ display:flex; gap:10px; flex-wrap:wrap; margin: 4px 0 18px 0; }
 [data-testid="stChatInput"]{
-    background: rgba(12,18,30,0.85);
+    background: rgba(12,18,30,0.92) !important;
     backdrop-filter: blur(18px);
-    border: 1px solid rgba(57,214,200,.45);
+    border: 1px solid rgba(57,214,200,.45) !important;
     border-radius: 20px;
     box-shadow:
         0 0 25px rgba(57,214,200,.18),
         inset 0 0 12px rgba(255,255,255,.03);
+    opacity: 1 !important;
 }
 .stChatInput textarea{ border-radius:14px !important; }
 
-/* NEW: color of the text the user types into the chat box */
-[data-testid="stChatInput"] textarea{
+/* color of the text the user types into the chat box (all textarea variants) */
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInputTextArea"]{
     color: var(--chat-input-text) !important;
+    background: transparent !important;
     caret-color: var(--accent);
     font-weight: 500;
+    opacity: 1 !important;
 }
 [data-testid="stChatInput"] textarea::placeholder{
     color: var(--text-lo) !important;
-    opacity: 0.9;
+    opacity: 0.9 !important;
 }
 
-/* NEW: color of the chatbot's (assistant) rendered answers */
+/* color of the chatbot's (assistant) rendered answers */
 div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) p,
 div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) li,
 div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) span{
     color: var(--chat-assistant-text) !important;
+    opacity: 1 !important;
 }
 
-/* NEW: color of the user's own messages shown back in the chat history */
+/* color of the user's own messages shown back in the chat history */
 div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) p,
 div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) li,
 div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) span{
     color: var(--chat-user-text) !important;
+    opacity: 1 !important;
 }
 
 /* Buttons */
@@ -288,6 +355,7 @@ div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"])
     color: var(--text-hi);
     font-weight:500;
     transition: all .15s ease;
+    opacity: 1 !important;
 }
 .stButton>button:hover{
     border-color: var(--accent);
@@ -387,13 +455,15 @@ You have wide general knowledge of finance, economics, accounting, investing, cr
 patterns, market mechanics, personal finance, and risk management, on top of the live portfolio data
 below. Freely answer general finance/education questions (e.g. "what is a P/E ratio", "how does
 compound interest work", "what's a good debt-to-income ratio", "explain diversification", "what causes
-inflation") using your own general knowledge, the same way a knowledgeable analyst or a general chatbot
-would — you are not limited to only what's in the data below. Feel free to explain concepts, give
-context, compare approaches, and go into as much depth as the user asks for.
+inflation", "how do I build a budget", "explain options trading", "what is a SAFE note") using your own
+general knowledge, the same way a knowledgeable analyst or a general-purpose chatbot would — you are
+not limited to only what's in the data below. Feel free to explain concepts, give context, compare
+approaches, walk through examples/calculations, and go into as much depth as the user asks for, just
+like ChatGPT would for a finance question.
 The one hard rule: never invent SPECIFIC numbers, scores, or facts about THIS portfolio, THESE
 customers, or THESE tracked companies that aren't in the data below or returned by a tool — for those,
 stick strictly to the given data, or call the lookup_customer tool. General financial knowledge and
-education are always fair game.
+education are always fair game, and don't need to be hedged with "I only know about this dataset".
 
 PORTFOLIO SUMMARY: {json.dumps(portfolio_summary)}
 
@@ -454,16 +524,18 @@ TOOLS = [
 
 
 # --------------------------------------------------------------------------
-# Groq call helpers (functionality preserved from the original app)
+# Chat engine call helper — works for BOTH Groq and OpenAI clients, since
+# the openai-python and groq-python SDKs share the same chat.completions
+# interface. This is what "links the copilot to GPT" when the user opts in.
 # --------------------------------------------------------------------------
-def call_copilot_stream(client, system_prompt, history, use_tools, finshield_scores, decisions):
+def call_copilot_stream(client, model, system_prompt, history, use_tools, finshield_scores, decisions):
     """Streams the reply into the Streamlit UI, handling tool calls if enabled."""
     messages = [{"role": "system", "content": system_prompt}, *history]
 
     while True:
         stream = client.chat.completions.create(
-            model=TEXT_MODEL,
-            max_tokens=500,
+            model=model,
+            max_tokens=900,
             temperature=0 if use_tools else 0.7,
             messages=messages,
             tools=TOOLS if use_tools else None,
@@ -537,7 +609,7 @@ def call_copilot_stream(client, system_prompt, history, use_tools, finshield_sco
         # loop again so the model can use the tool result to write its real answer
 
 
-def call_copilot_vision(client, system_prompt, history, question, image_bytes, media_type):
+def call_copilot_vision(groq_client, system_prompt, history, question, image_bytes, media_type):
     import base64
     b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
     message = {
@@ -548,12 +620,12 @@ def call_copilot_vision(client, system_prompt, history, question, image_bytes, m
         ],
     }
     messages = [{"role": "system", "content": system_prompt}, *history, message]
-    response = client.chat.completions.create(model=VISION_MODEL, max_tokens=500, messages=messages)
+    response = groq_client.chat.completions.create(model=VISION_MODEL, max_tokens=500, messages=messages)
     return response.choices[0].message.content, message
 
 
-def transcribe_audio(client, audio_bytes, filename):
-    transcript = client.audio.transcriptions.create(
+def transcribe_audio(groq_client, audio_bytes, filename):
+    transcript = groq_client.audio.transcriptions.create(
         file=(filename, audio_bytes),
         model=AUDIO_MODEL,
     )
@@ -607,6 +679,7 @@ st.markdown(
         <div class="hero-badges">
             <span class="badge online"><span class="pulse-dot"></span>AI Online</span>
             <span class="badge">⚡ Groq-Powered</span>
+            <span class="badge">🤖 GPT-Ready</span>
             <span class="badge">🎙️ Voice Enabled</span>
             <span class="badge">🖼️ Vision Enabled</span>
             <span class="badge">{datetime.now().strftime('%b %d, %Y · %H:%M')}</span>
@@ -622,12 +695,38 @@ st.markdown(
 # --------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("### ⚙️ Setup")
-    api_key = st.text_input(
+
+    groq_api_key = st.text_input(
         "Groq API key",
         value=os.environ.get("GROQ_API_KEY", ""),
         type="password",
-        help="Get one free at console.groq.com/keys",
+        help="Get one free at console.groq.com/keys. Always required — powers vision (image) "
+             "and voice (Whisper) input, and is the default chat engine.",
     )
+
+    st.markdown("#### 🤖 Answer engine")
+    engine_choice = st.radio(
+        "Which model should answer chat questions?",
+        ["Groq (fast)", "OpenAI GPT (broadest general knowledge)"],
+        index=0,
+        label_visibility="collapsed",
+    )
+    use_gpt_engine = engine_choice.startswith("OpenAI")
+
+    openai_api_key = ""
+    gpt_model = TEXT_MODELS_OPENAI[0]
+    if use_gpt_engine:
+        if not OPENAI_AVAILABLE:
+            st.error("The `openai` package isn't installed. Run: pip install openai")
+        openai_api_key = st.text_input(
+            "OpenAI API key",
+            value=os.environ.get("OPENAI_API_KEY", ""),
+            type="password",
+            help="Get one at platform.openai.com/api-keys. Links chat answers directly to a GPT model "
+                 "for the broadest general finance knowledge, on top of your live portfolio data.",
+        )
+        gpt_model = st.selectbox("GPT model", TEXT_MODELS_OPENAI, index=0)
+
     use_tools = st.toggle(
         "Advanced mode (live customer lookup)",
         value=False,
@@ -655,11 +754,23 @@ if missing:
     )
     st.stop()
 
-if not api_key:
-    st.info("Enter your Groq API key in the sidebar to start chatting.")
+if not groq_api_key:
+    st.info("Enter your Groq API key in the sidebar to start chatting (needed for vision/voice and as the default engine).")
     st.stop()
 
-client = Groq(api_key=api_key)
+if use_gpt_engine and OPENAI_AVAILABLE and not openai_api_key:
+    st.info("Enter your OpenAI API key in the sidebar to use the GPT answer engine, or switch back to Groq.")
+    st.stop()
+
+groq_client = Groq(api_key=groq_api_key)
+openai_client = OpenAI(api_key=openai_api_key) if (use_gpt_engine and OPENAI_AVAILABLE and openai_api_key) else None
+
+# The client/model actually used for text chat this run
+if use_gpt_engine and openai_client is not None:
+    chat_client, chat_model = openai_client, gpt_model
+else:
+    chat_client, chat_model = groq_client, TEXT_MODEL_GROQ
+
 finshield_scores, decisions, portfolio_summary, sample_customers, market_context, fraud_scores = load_data()
 fraud_summary = get_fraud_summary(fraud_scores)
 system_prompt = build_system_prompt(portfolio_summary, market_context, sample_customers, fraud_summary)
@@ -765,6 +876,7 @@ with st.expander("🗂️ Portfolio snapshot the Copilot is grounded in"):
 # Chat — ChatGPT-like interface
 # --------------------------------------------------------------------------
 section_title("🤖 Ask FinShield Copilot")
+st.caption(f"Answer engine: **{chat_model}**" + (" (OpenAI GPT)" if chat_client is openai_client else " (Groq)"))
 
 if "history" not in st.session_state:
     st.session_state.history = []  # list of {"role", "content"} dicts shown in the UI
@@ -797,15 +909,16 @@ if question:
     # Voice: if audio was attached, transcribe it and use that as (or prepend to) the question
     if audio_file is not None:
         with st.spinner("🎤 Transcribing audio..."):
-            heard = transcribe_audio(client, audio_file.read(), audio_file.name)
+            heard = transcribe_audio(groq_client, audio_file.read(), audio_file.name)
         st.caption(f"🎤 Heard: \"{heard}\"")
         question = f"{heard}\n\n{question}" if question.strip() else heard
 
     with st.chat_message("assistant", avatar="🛡️"):
         if image_file is not None:
             with st.spinner("🖼️ Reading image..."):
+                # Vision always goes through Groq, regardless of the chosen text engine
                 reply, sent_message = call_copilot_vision(
-                    client, system_prompt, st.session_state.history, question,
+                    groq_client, system_prompt, st.session_state.history, question,
                     image_file.read(), image_file.type or "image/png",
                 )
                 st.markdown(reply)
@@ -814,7 +927,7 @@ if question:
         else:
             st.session_state.history.append({"role": "user", "content": question})
             reply = call_copilot_stream(
-                client, system_prompt, st.session_state.history, use_tools,
+                chat_client, chat_model, system_prompt, st.session_state.history, use_tools,
                 finshield_scores, decisions,
             )
             st.session_state.history.append({"role": "assistant", "content": reply})
@@ -828,7 +941,7 @@ st.markdown(
      <div class="app-footer">
         <div>🛡️ <b>{APP_NAME}</b> — Where Machine Learning Meets Financial Intelligence</div>
         <div class="signature">👨‍💻 Designed &amp; Developed by {APP_AUTHOR}</div>
-        <div style="margin-top:6px;">Powered by Groq · {TEXT_MODEL.split('/')[-1]} · {VISION_MODEL.split('/')[-1]} · {AUDIO_MODEL}</div>
+        <div style="margin-top:6px;">Powered by Groq · {TEXT_MODEL_GROQ.split('/')[-1]} · {VISION_MODEL.split('/')[-1]} · {AUDIO_MODEL} · optional OpenAI GPT</div>
     </div>
     """,
     unsafe_allow_html=True,
