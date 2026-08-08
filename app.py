@@ -84,6 +84,13 @@ CUSTOM_CSS = """
     --danger:#ff5c6c;
     --warn:#ffb454;
     --good:#3ee6a8;
+
+    /* NEW: dedicated colors for chat output + user-typed text */
+    --chat-assistant-text:#7ef0da;   /* bright teal — bot answers */
+    --chat-user-text:#ffe3b3;        /* warm amber — user messages */
+    --chat-input-text:#ffffff;       /* text as the user types it */
+    --sidebar-text:#d7e6ff;          /* sidebar / "slide bar" text color */
+    --scrollbar-thumb:#39d6c8;
 }
  
 html, body, [class*="css"]  { font-family:'Inter', sans-serif; }
@@ -100,6 +107,27 @@ html, body, [class*="css"]  { font-family:'Inter', sans-serif; }
 section[data-testid="stSidebar"]{
     background: linear-gradient(180deg, rgba(10,14,26,0.98), rgba(5,7,13,0.98));
     border-right: 1px solid var(--glass-border);
+}
+
+/* NEW: sidebar ("slide bar") text color */
+section[data-testid="stSidebar"] * {
+    color: var(--sidebar-text) !important;
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #ffffff !important;
+}
+section[data-testid="stSidebar"] input {
+    color: #ffffff !important;
+}
+
+/* NEW: custom scrollbar coloring (in case "slide bar" meant the scrollbar) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    border-radius: 10px;
 }
  
 #MainMenu, footer, header {visibility: hidden;}
@@ -227,6 +255,31 @@ section[data-testid="stSidebar"]{
 }
 .stChatInput textarea{ border-radius:14px !important; }
 
+/* NEW: color of the text the user types into the chat box */
+[data-testid="stChatInput"] textarea{
+    color: var(--chat-input-text) !important;
+    caret-color: var(--accent);
+    font-weight: 500;
+}
+[data-testid="stChatInput"] textarea::placeholder{
+    color: var(--text-lo) !important;
+    opacity: 0.9;
+}
+
+/* NEW: color of the chatbot's (assistant) rendered answers */
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) p,
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) li,
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssistant"]) span{
+    color: var(--chat-assistant-text) !important;
+}
+
+/* NEW: color of the user's own messages shown back in the chat history */
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) p,
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) li,
+div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) span{
+    color: var(--chat-user-text) !important;
+}
+
 /* Buttons */
 .stButton>button{
     border-radius:12px;
@@ -328,7 +381,19 @@ def build_system_prompt(portfolio_summary, market_context, sample_customers, fra
     return f"""You are FinShield Copilot, an AI assistant embedded in a financial risk intelligence platform
 called "{APP_NAME}", designed and developed by {APP_AUTHOR}.
 Speak like a sharp, plain-spoken risk analyst — concise, no markdown headers, short paragraphs or tight bullet lists.
-Never invent numbers that aren't given below.
+
+KNOWLEDGE SCOPE — be broad like a general-purpose assistant (GPT-style):
+You have wide general knowledge of finance, economics, accounting, investing, credit, banking, fraud
+patterns, market mechanics, personal finance, and risk management, on top of the live portfolio data
+below. Freely answer general finance/education questions (e.g. "what is a P/E ratio", "how does
+compound interest work", "what's a good debt-to-income ratio", "explain diversification", "what causes
+inflation") using your own general knowledge, the same way a knowledgeable analyst or a general chatbot
+would — you are not limited to only what's in the data below. Feel free to explain concepts, give
+context, compare approaches, and go into as much depth as the user asks for.
+The one hard rule: never invent SPECIFIC numbers, scores, or facts about THIS portfolio, THESE
+customers, or THESE tracked companies that aren't in the data below or returned by a tool — for those,
+stick strictly to the given data, or call the lookup_customer tool. General financial knowledge and
+education are always fair game.
 
 PORTFOLIO SUMMARY: {json.dumps(portfolio_summary)}
 
@@ -339,10 +404,13 @@ MARKET & SENTIMENT (tracked companies): {market_context.to_json(orient='records'
 SAMPLE CUSTOMERS (use these for "explain customer X" questions; if an ID isn't listed here,
 call the lookup_customer tool instead of guessing): {sample_customers.to_json(orient='records')}
 
-If asked about investing, give a balanced read using the forecast + sentiment + volatility tag, and
-note this is illustrative synthetic market data, not real trading advice. If asked to approve/deny a
-real loan, note a human underwriter makes the final call. Keep answers under ~150 words unless asked
-for more detail. If asked who built this app, say it was designed and developed by {APP_AUTHOR}."""
+If asked about investing, give a balanced read using the forecast + sentiment + volatility tag when
+relevant, and note this is illustrative synthetic market data, not real trading advice. For general
+market/investing education not tied to the tracked companies, answer from your own broad knowledge.
+If asked to approve/deny a real loan, note a human underwriter makes the final call. Default to answers
+under ~150 words, but give longer, more thorough answers whenever the user asks a broader or more
+detailed question — match the depth to what's being asked, like a capable general assistant would.
+If asked who built this app, say it was designed and developed by {APP_AUTHOR}."""
 
 
 def lookup_customer(finshield_scores, decisions, customer_id):
