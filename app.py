@@ -679,11 +679,9 @@ st.markdown(
         <div class="hero-badges">
             <span class="badge online"><span class="pulse-dot"></span>AI Online</span>
             <span class="badge">⚡ Groq-Powered</span>
-            <span class="badge">🤖 GPT-Ready</span>
             <span class="badge">🎙️ Voice Enabled</span>
             <span class="badge">🖼️ Vision Enabled</span>
             <span class="badge">{datetime.now().strftime('%b %d, %Y · %H:%M')}</span>
-        </div>
         <div class="author-chip">👨‍💻 Designed &amp; Developed by <b>{APP_AUTHOR}</b></div>
     </div>
     """,
