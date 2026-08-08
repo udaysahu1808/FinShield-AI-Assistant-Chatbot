@@ -50,7 +50,7 @@ VISION_MODEL = "qwen/qwen3.6-27b"         # multimodal / vision-capable model on
 AUDIO_MODEL = "whisper-large-v3-turbo"    # Groq-hosted Whisper for voice input
 
 APP_NAME = "FinShield AI Assistant"
-APP_AUTHOR = "Uday Sahu"
+APP_AUTHOR = "Mr. Uday Sahu"
 
 REQUIRED_FILES = [
     "outputs/finshield_scores.csv",
@@ -939,7 +939,7 @@ st.markdown(
      <div class="app-footer">
         <div>🛡️ <b>{APP_NAME}</b> — Where Machine Learning Meets Financial Intelligence</div>
         <div class="signature">👨‍💻 Designed &amp; Developed by {APP_AUTHOR}</div>
-        <div style="margin-top:6px;">Powered by Groq · {TEXT_MODEL_GROQ.split('/')[-1]} · {VISION_MODEL.split('/')[-1]} · {AUDIO_MODEL} · optional OpenAI GPT</div>
+        <div style="margin-top:6px;">Powered by Groq </div>
     </div>
     """,
     unsafe_allow_html=True,
