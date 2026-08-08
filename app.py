@@ -937,7 +937,7 @@ if question:
 st.markdown(
     f"""
      <div class="app-footer">
-        <div>🛡️ <b>{APP_NAME}</b> — Where Machine Learning Meets Financial Intelligence</div>
+        <div>🛡️ <b>{APP_NAME}</b> - Where Machine Learning Meets Financial Intelligence</div>
         <div class="signature">👨‍💻 Designed &amp; Developed by {APP_AUTHOR}</div>
         <div style="margin-top:6px;">Powered by Groq </div>
     </div>
