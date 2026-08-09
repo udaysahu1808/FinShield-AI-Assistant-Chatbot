@@ -24,7 +24,7 @@ Data files expected in ./outputs/ (produced upstream by FinShield Parts 1-3):
 Configuration (never hard-coded):
     Set via .streamlit/secrets.toml OR environment variables:
         LLM_PROVIDER=groq            # "groq" or "openai"
-        GROQ_API_KEY="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"
+        GROQ_API_KEY=...
         OPENAI_API_KEY=...
     Optional model overrides:
         GROQ_TEXT_MODEL, GROQ_VISION_MODEL, GROQ_AUDIO_MODEL
@@ -99,7 +99,7 @@ if PROVIDER_DEFAULT not in ("groq", "openai"):
 
 MODEL_DEFAULTS = {
     "groq": {
-        "text": _cfg("GROQ_TEXT_MODEL", "gorq/gpt-oss-120b"),
+        "text": _cfg("GROQ_TEXT_MODEL", "openai/gpt-oss-120b"),
         "vision": _cfg("GROQ_VISION_MODEL", "qwen/qwen3.6-27b"),
         "audio": _cfg("GROQ_AUDIO_MODEL", "whisper-large-v3-turbo"),
     },
@@ -288,7 +288,7 @@ div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssista
 }
 [data-testid="stChatInput"] textarea,
 [data-testid="stChatInputTextArea"]{
-    color: #0a0a0a !important;
+    color: #080000 !important;
     background: transparent !important;
     caret-color: #00e5ff !important;
     font-weight: 500 !important;
@@ -673,6 +673,11 @@ def _tool_get_market_sentiment(data):
 
 
 def _tool_calculate_financial_ratio(data, ratio_name, values):
+    if isinstance(values, str):
+        try:
+            values = json.loads(values)
+        except Exception:
+            return {"error": "`values` must be a JSON object string, e.g. '{\"price\": 45, \"eps\": 3.2}'"}
     return calculate_financial_ratio(ratio_name, values)
 
 
@@ -723,8 +728,8 @@ TOOLS = [
         "name": "calculate_financial_ratio",
         "description": "Calculate a financial ratio (cagr, roe, pe, pb, sharpe, debt_to_equity, current_ratio) from user-supplied numbers. Never guess inputs — only call this when the user has given the numbers.",
         "parameters": {"type": "object", "properties": {
-            "ratio_name": {"type": "string"},
-            "values": {"type": "object", "description": "key-value numeric inputs required by the ratio formula"}},
+            "ratio_name": {"type": "string", "description": "One of: cagr, roe, pe, pb, sharpe, debt_to_equity, current_ratio"},
+            "values": {"type": "string", "description": "A JSON object STRING of key-value numeric inputs required by the ratio formula, e.g. '{\"price\": 45, \"eps\": 3.2}'"}},
             "required": ["ratio_name", "values"]}}},
     {"type": "function", "function": {
         "name": "compare_companies", "description": "Compare two tracked companies on forecast, sentiment and impact.",
@@ -826,6 +831,7 @@ def call_llm_with_tools(client, model, system_prompt, history, data, use_tools=T
                 stream=True,
             )
         except Exception as e:
+            st.session_state["_last_llm_error_detail"] = str(e)
             return None, f"⚠️ FinShield AI cannot connect to the language model right now ({type(e).__name__}). Please verify your API configuration."
 
         full_text, tool_calls_acc, finish_reason = "", {}, None
@@ -1005,7 +1011,7 @@ if missing_files:
 # 10. SIDEBAR
 # ==========================================================================
 with st.sidebar:
-    st.markdown("### 🛡️ FinShield AI — Configuration")
+    st.markdown("### 🛡️ FinShield AI - Configuration")
 
     provider = st.radio(
         "LLM Provider", ["groq", "openai"],
@@ -1166,7 +1172,7 @@ if portfolio_summary.get("available"):
 # ==========================================================================
 # 13. CHAT
 # ==========================================================================
-section_title("🤖 Ask FinShield Copilot")
+section_title("🤖 Ask FinShied AI Assistant")
 st.caption(f"Answer engine: **{model_text}** ({provider.upper()}) · Tool calling: {'On' if use_tools else 'Off'}")
 
 if "history" not in st.session_state:
@@ -1184,6 +1190,10 @@ def run_turn(question: str):
         reply, error = call_llm_with_tools(client, model_text, system_prompt, st.session_state.history, data, use_tools=use_tools)
         if error:
             st.warning(error)
+            detail = st.session_state.get("_last_llm_error_detail")
+            if detail:
+                with st.expander("Technical detail (for debugging)"):
+                    st.code(detail)
         final_text = reply if reply else (error or "I couldn't generate a response.")
     append_message("assistant", final_text)
 
