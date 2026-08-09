@@ -24,7 +24,7 @@ Data files expected in ./outputs/ (produced upstream by FinShield Parts 1-3):
 Configuration (never hard-coded):
     Set via .streamlit/secrets.toml OR environment variables:
         LLM_PROVIDER=groq            # "groq" or "openai"
-        GROQ_API_KEY=...
+        GROQ_API_KEY="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"
         OPENAI_API_KEY=...
     Optional model overrides:
         GROQ_TEXT_MODEL, GROQ_VISION_MODEL, GROQ_AUDIO_MODEL
