@@ -815,7 +815,7 @@ def get_openai_client(api_key: str):
         return None
 
 
-def call_llm_with_tools(client, model, system_prompt, history, data, use_tools=True):
+def _call_llm_with_tools_impl(client, model, system_prompt, history, data, use_tools=True):
     """Streams the reply into the chat UI, resolving tool calls against TOOL_REGISTRY.
     Returns (final_text, error_message_or_None)."""
     messages = [{"role": "system", "content": system_prompt}, *history[-MAX_HISTORY_MESSAGES:]]
@@ -889,6 +889,23 @@ def call_llm_with_tools(client, model, system_prompt, history, data, use_tools=T
             messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result, default=str)})
 
     return full_text or "", "⚠️ Reached the tool-call limit for this turn. Please rephrase or ask a more specific question."
+
+
+def call_llm_with_tools(client, model, system_prompt, history, data, use_tools=True):
+    """Public entry point. Some models (notably Groq's openai/gpt-oss-120b) can
+    intermittently reject streaming + tool-calling requests with a BadRequestError.
+    If that happens on the first (tools-enabled) attempt, automatically retry once
+    with tools disabled so the user still gets an answer instead of a dead end."""
+    text, error = _call_llm_with_tools_impl(client, model, system_prompt, history, data, use_tools=use_tools)
+    if error and use_tools and "BadRequestError" in error:
+        st.session_state["_last_llm_error_detail"] = (
+            st.session_state.get("_last_llm_error_detail", "") + "\n\n[Auto-retried without tool calling]"
+        )
+        text2, error2 = _call_llm_with_tools_impl(client, model, system_prompt, history, data, use_tools=False)
+        if not error2:
+            return text2, None
+        return text2, error2
+    return text, error
 
 
 def analyze_image_with_vision(client, model, system_prompt, question, image_bytes, media_type):
@@ -1011,7 +1028,7 @@ if missing_files:
 # 10. SIDEBAR
 # ==========================================================================
 with st.sidebar:
-    st.markdown("### 🛡️ FinShield AI - Configuration")
+    st.markdown("### 🛡️ FinShield AI — Configuration")
 
     provider = st.radio(
         "LLM Provider", ["groq", "openai"],
@@ -1172,7 +1189,7 @@ if portfolio_summary.get("available"):
 # ==========================================================================
 # 13. CHAT
 # ==========================================================================
-section_title("🤖 Ask FinShied AI Assistant")
+section_title("🤖 Ask FinShield Copilot")
 st.caption(f"Answer engine: **{model_text}** ({provider.upper()}) · Tool calling: {'On' if use_tools else 'Off'}")
 
 if "history" not in st.session_state:
