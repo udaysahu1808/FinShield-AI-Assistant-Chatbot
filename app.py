@@ -99,7 +99,7 @@ if PROVIDER_DEFAULT not in ("groq", "openai"):
 
 MODEL_DEFAULTS = {
     "groq": {
-        "text": _cfg("GROQ_TEXT_MODEL", "openai/gpt-oss-120b"),
+        "text": _cfg("GROQ_TEXT_MODEL", "gorq/gpt-oss-120b"),
         "vision": _cfg("GROQ_VISION_MODEL", "qwen/qwen3.6-27b"),
         "audio": _cfg("GROQ_AUDIO_MODEL", "whisper-large-v3-turbo"),
     },
@@ -288,7 +288,7 @@ div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssista
 }
 [data-testid="stChatInput"] textarea,
 [data-testid="stChatInputTextArea"]{
-    color: #ffffff !important;
+    color: #0a0a0a !important;
     background: transparent !important;
     caret-color: #00e5ff !important;
     font-weight: 500 !important;
