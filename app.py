@@ -93,6 +93,20 @@ def _cfg(key: str, default: str = "") -> str:
     return os.environ.get(key, default)
 
 
+def _is_placeholder_key(value: str) -> bool:
+    if not value:
+        return False
+    lower = value.strip().lower()
+    placeholders = {
+        "your_openai_api_key_here",
+        "your_groq_api_key_here",
+        "gsk_your_key_here",
+        "changeme",
+        "xxxx",
+    }
+    return any(p in lower for p in placeholders)
+
+
 PROVIDER_DEFAULT = _cfg("LLM_PROVIDER", "groq").lower().strip()
 if PROVIDER_DEFAULT not in ("groq", "openai"):
     PROVIDER_DEFAULT = "groq"
@@ -184,7 +198,6 @@ section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] h4{
     color: var(--text-primary) !important;
 }
-section[data-testid="stSidebar"] input{ color: var(--text-primary) !important; }
 
 /* ---------- Hero ---------- */
 .hero-wrap{
@@ -197,6 +210,11 @@ section[data-testid="stSidebar"] input{ color: var(--text-primary) !important; }
     font-family:'Space Grotesk', sans-serif; font-size:2.5rem; font-weight:700; margin:0;
     background: linear-gradient(90deg, #ffffff, #a9f7ef 45%, #b6acff 85%);
     -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:-0.02em;
+}
+.hero-icon{
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    background: none !important;
 }
 .hero-sub{ color: var(--text-secondary); font-size:1.02rem; margin-top:6px; }
 .hero-badges{ margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; }
@@ -245,7 +263,7 @@ section[data-testid="stSidebar"] input{ color: var(--text-primary) !important; }
 .status-dot.bad{ background: var(--danger); box-shadow:0 0 6px var(--danger); }
 .status-dot.warn{ background: var(--warn); box-shadow:0 0 6px var(--warn); }
 
-/* ---------- Chat message bubbles — the fix for "dark text on dark bg" ---------- */
+/* ---------- Chat message bubbles ---------- */
 div[data-testid="stChatMessage"]{
     background: rgba(255,255,255,0.035) !important;
     border: 1px solid var(--glass-border) !important;
@@ -274,9 +292,9 @@ div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssista
 }
 .msg-timestamp{ color: var(--text-muted) !important; font-size: 0.72rem !important; margin-top: 4px !important; }
 
-/* ---------- Chat input (Enter to send + built-in send button) ---------- */
+/* ---------- Chat input & ALL Text Input Styles (Force Black Text) ---------- */
 [data-testid="stChatInput"]{
-    background: rgba(10,15,26,0.92) !important;
+    background: rgba(255,255,255,0.92) !important;
     backdrop-filter: blur(18px);
     border: 1.5px solid rgba(45,212,191,0.55) !important;
     border-radius: 20px !important;
@@ -286,17 +304,30 @@ div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarAssista
     border-color: rgba(45,212,191,0.9) !important;
     box-shadow: 0 0 32px rgba(45,212,191,0.30), inset 0 0 12px rgba(255,255,255,0.04) !important;
 }
+
+input,
+textarea,
 [data-testid="stChatInput"] textarea,
-[data-testid="stChatInputTextArea"]{
-    color: #080000 !important;
+[data-testid="stChatInputTextArea"],
+div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
     background: transparent !important;
-    caret-color: #00e5ff !important;
+    caret-color: #000000 !important;
     font-weight: 500 !important;
     font-size: 1rem !important;
     opacity: 1 !important;
-    padding: 10px 6px !important;
 }
-[data-testid="stChatInput"] textarea::placeholder{ color: var(--text-muted) !important; opacity: 1 !important; }
+
+input::placeholder,
+textarea::placeholder,
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #4a5568 !important;
+    -webkit-text-fill-color: #4a5568 !important;
+    opacity: 1 !important;
+}
+
 [data-testid="stChatInput"] button{
     background: linear-gradient(135deg, var(--accent), var(--accent-3)) !important;
     color: var(--text-on-accent) !important;
@@ -818,7 +849,16 @@ def get_openai_client(api_key: str):
 def _call_llm_with_tools_impl(client, model, system_prompt, history, data, use_tools=True):
     """Streams the reply into the chat UI, resolving tool calls against TOOL_REGISTRY.
     Returns (final_text, error_message_or_None)."""
-    messages = [{"role": "system", "content": system_prompt}, *history[-MAX_HISTORY_MESSAGES:]]
+    sanitized_history = []
+    for msg in history[-MAX_HISTORY_MESSAGES:]:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if role not in ("user", "assistant") or not isinstance(content, str):
+            continue
+        sanitized_history.append({"role": role, "content": content})
+    messages = [{"role": "system", "content": system_prompt}, *sanitized_history]
 
     for _hop in range(4):  # cap tool-call hops to avoid infinite loops
         try:
@@ -831,8 +871,8 @@ def _call_llm_with_tools_impl(client, model, system_prompt, history, data, use_t
                 stream=True,
             )
         except Exception as e:
-            st.session_state["_last_llm_error_detail"] = str(e)
-            return None, f"⚠️ FinShield AI cannot connect to the language model right now ({type(e).__name__}). Please verify your API configuration."
+            st.session_state["_last_llm_error_detail"] = f"{type(e).__name__}: {e}"
+            return None, f"⚠️ FinShield AI cannot connect to the language model right now ({type(e).__name__}): {e}. Please verify your API configuration."
 
         full_text, tool_calls_acc, finish_reason = "", {}, None
         placeholder = st.empty()
@@ -998,7 +1038,7 @@ def render_history():
 # ==========================================================================
 st.markdown(f"""
 <div class="hero-wrap">
-    <div class="hero-title">🛡️ {APP_NAME}</div>
+    <div class="hero-title"><span class="hero-icon">🛡️</span> {APP_NAME}</div>
     <div class="hero-sub">{APP_TAGLINE} — Your Real-Time Risk, Fraud &amp; Market Copilot.</div>
     <div class="hero-badges">
         <span class="badge online"><span class="pulse-dot"></span>AI Online</span>
@@ -1028,7 +1068,7 @@ if missing_files:
 # 10. SIDEBAR
 # ==========================================================================
 with st.sidebar:
-    st.markdown("### 🛡️ FinShield AI — Configuration")
+    st.markdown("### 🛡️ FinShield AI - Configuration")
 
     provider = st.radio(
         "LLM Provider", ["groq", "openai"],
@@ -1040,6 +1080,8 @@ with st.sidebar:
         f"{provider.upper()} API key", value=default_key, type="password",
         help="Loaded from st.secrets / environment if configured there. Never displayed or logged.",
     )
+    if _is_placeholder_key(api_key):
+        st.warning("It looks like you are using a placeholder API key. Replace it with your real Groq/OpenAI key in .streamlit/secrets.toml or environment variables.")
     use_tools = st.toggle("🔧 Enable tool calling (live data lookups)", value=True,
                            help="Lets the model call FinShield tools for exact customer/company data instead of guessing.")
 
@@ -1050,13 +1092,13 @@ with st.sidebar:
     analyze_image_clicked = False
     if image_file is not None:
         size_mb = image_file.size / (1024 * 1024)
-        st.image(image_file, caption=image_file.name, use_container_width=True)
+        st.image(image_file, caption=image_file.name, width="stretch")
         st.caption(f"📄 {image_file.name} · {human_size(image_file.size)}")
         proceed = True
         if size_mb > MAX_UPLOAD_MB_SOFT_LIMIT:
             proceed = st.checkbox(f"File is {size_mb:.1f} MB — confirm you want to process it")
         image_question = st.text_input("Optional question about this image", key="img_question")
-        analyze_image_clicked = st.button("🔍 Analyze Image", use_container_width=True, type="primary", disabled=not proceed)
+        analyze_image_clicked = st.button("🔍 Analyze Image", width="stretch", type="primary", disabled=not proceed)
 
     st.divider()
     st.markdown("### 🎙️ Voice Analysis")
@@ -1068,10 +1110,10 @@ with st.sidebar:
         proceed_audio = True
         if size_mb > MAX_UPLOAD_MB_SOFT_LIMIT:
             proceed_audio = st.checkbox(f"File is {size_mb:.1f} MB — confirm you want to process it", key="audio_confirm")
-        analyze_voice_clicked = st.button("🎙️ Analyze Voice", use_container_width=True, type="primary", disabled=not proceed_audio)
+        analyze_voice_clicked = st.button("🎙️ Analyze Voice", width="stretch", type="primary", disabled=not proceed_audio)
 
     st.divider()
-    if st.button("🔄 Reset Conversation", use_container_width=True):
+    if st.button("🔄 Reset Conversation", width="stretch"):
         st.session_state.pop("history", None)
         st.session_state.pop("pending_question", None)
         st.rerun()
@@ -1150,14 +1192,14 @@ if portfolio_summary.get("available"):
         fig = px.pie(health_df, names="health", values="count", hole=0.62, title="Financial Health Distribution")
         fig.update_traces(textposition="inside", textinfo="percent+label")
         fig.update_layout(template=PLOTLY_TEMPLATE, title_font_size=15, showlegend=True, height=340)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with c2:
         alert_df = pd.DataFrame({"alert": list(portfolio_summary["alert_distribution"].keys()),
                                   "count": list(portfolio_summary["alert_distribution"].values())}).sort_values("count")
         fig = px.bar(alert_df, x="count", y="alert", orientation="h", title="🚨 Fraud & Risk Overview — Alert Levels",
                      color="count", color_continuous_scale=["#2dd4bf", "#7c6cff"])
         fig.update_layout(template=PLOTLY_TEMPLATE, title_font_size=15, height=340, coloraxis_showscale=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     c3, c4 = st.columns(2)
     with c3:
@@ -1165,7 +1207,7 @@ if portfolio_summary.get("available"):
                                 "count": list(portfolio_summary["segment_distribution"].values())})
         fig = px.bar(seg_df, x="segment", y="count", title="Customer Segments", color="segment")
         fig.update_layout(template=PLOTLY_TEMPLATE, title_font_size=15, height=340, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with c4:
         if mc is not None:
             numeric_cols = mc.select_dtypes("number").columns.tolist()
@@ -1176,15 +1218,15 @@ if portfolio_summary.get("available"):
                 fig = px.scatter(mc, x=x_col, y=y_col, text="company", title="Market Forecast vs. Sentiment")
                 fig.update_traces(textposition="top center", marker=dict(size=13, line=dict(width=1, color="#0a0e1a")))
                 fig.update_layout(template=PLOTLY_TEMPLATE, title_font_size=15, height=340)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
             else:
-                st.dataframe(mc, use_container_width=True, height=340)
+                st.dataframe(mc,width="stretch", height=340)
         else:
             st.info("Market/sentiment data not available.")
 
     if data.get("customers_merged") is not None:
         with st.expander("🗂️ Portfolio snapshot the Copilot is grounded in"):
-            st.dataframe(data["customers_merged"].head(15), use_container_width=True)
+            st.dataframe(data["customers_merged"].head(15), width="stretch")
 
 # ==========================================================================
 # 13. CHAT
@@ -1220,7 +1262,7 @@ if not st.session_state.history:
     cols = st.columns(len(SUGGESTED_PROMPTS))
     for col, prompt in zip(cols, SUGGESTED_PROMPTS):
         with col:
-            if st.button(prompt, use_container_width=True, key=f"suggest_{prompt}"):
+            if st.button(prompt, width="stretch", key=f"suggest_{prompt}"):
                 st.session_state.pending_question = prompt.split(" ", 1)[1]
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1286,8 +1328,8 @@ elif question is not None and not question.strip():
 # ==========================================================================
 st.markdown(f"""
 <div class="app-footer">
-    <div>🛡️ <b>{APP_NAME}</b> — {APP_TAGLINE}</div>
+    <div>🛡️ <b>{APP_NAME}</b> - {APP_TAGLINE}</div>
     <div class="signature">👨‍💻 Made by {APP_AUTHOR}</div>
-    <div style="margin-top:6px;">Provider: {provider.upper()} · {model_text} · {model_vision} · {model_audio}</div>
+    <div style="margin-top:6px;">Provider: {provider.upper()}</div>
 </div>
 """, unsafe_allow_html=True)
