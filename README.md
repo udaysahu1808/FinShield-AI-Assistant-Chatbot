@@ -1,8 +1,8 @@
-# FinShield-AI-Assistant-Chatbot — live app 
+# FinShield-AI-Assistant-Chatbot - live app 
 
 A browser chat app version of the FinShield Copilot notebook: same grounded,
 multimodal, tool-using chatbot, now with a real chat UI, file uploads for
-images/audio, and streaming replies.
+images/audio and streaming replies.
 
 ## 1. Set up the folder
 
