@@ -48,14 +48,14 @@ streamlit run app.py
 
 ## Features
 
-- **Chat** — grounded in your real portfolio summary, market/sentiment data,
+- **Chat** - grounded in your real portfolio summary, market/sentiment data,
   and a 30-customer sample, same as the notebook's `ask_copilot()`.
 - **Advanced mode** (sidebar toggle) - the model can call a live
   `lookup_customer` tool to pull the exact record for **any** of your
   60,000 customers, not just the sample, with streaming replies.
-- **Image upload** — attach a chart screenshot, statement, or document in
+- **Image upload** - attach a chart screenshot, statement, or document in
   the sidebar before sending a message; Groq's vision model reads it.
-- **Voice upload** — attach a short audio clip (wav/mp3/m4a/ogg); it's
+- **Voice upload** - attach a short audio clip (wav/mp3/m4a/ogg); it's
   transcribed with Groq's hosted Whisper model and sent as your question.
 - **Reset conversation** button clears chat memory.
 
