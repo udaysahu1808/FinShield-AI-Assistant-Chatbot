@@ -50,7 +50,7 @@ streamlit run app.py
 
 - **Chat** — grounded in your real portfolio summary, market/sentiment data,
   and a 30-customer sample, same as the notebook's `ask_copilot()`.
-- **Advanced mode** (sidebar toggle) — the model can call a live
+- **Advanced mode** (sidebar toggle) - the model can call a live
   `lookup_customer` tool to pull the exact record for **any** of your
   60,000 customers, not just the sample, with streaming replies.
 - **Image upload** — attach a chart screenshot, statement, or document in
